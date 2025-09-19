@@ -4,7 +4,11 @@ import type {
   ProblemCreateRequest, SolutionCreateRequest, ValidationCreateRequest 
 } from '../types';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? '' // Use relative URLs in production (same origin)
+  : (typeof window !== 'undefined' 
+    ? `${window.location.protocol}//${window.location.hostname}:8000`
+    : 'http://localhost:8000');
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -2,6 +2,15 @@
 
 This is a Proof-of-Intelligence Network application that creates a decentralized problem-solving platform where users can post problems, submit solutions, and earn tokens. The system implements a validation mechanism where approved validators review solutions and award tokens to successful solvers. The platform features a token-based economy to incentivize high-quality problem-solving and maintain network integrity.
 
+## Recent Changes (September 19, 2025)
+Successfully imported GitHub project and configured for Replit environment:
+- **Dependencies**: Installed Python dependencies via uv and Node.js dependencies via pnpm
+- **Development Workflows**: Backend runs on port 8000, frontend on port 5000
+- **Security**: Fixed CORS configuration to use regex patterns instead of wildcard origins
+- **Host Configuration**: Configured Vite to allow all hosts for Replit's proxy system
+- **API Configuration**: Updated frontend to dynamically determine backend URL from window.location
+- **Deployment**: Configured VM deployment with static file serving for production
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.

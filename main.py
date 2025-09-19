@@ -1,19 +1,22 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import models
 import schemas
 from database import engine, get_db, create_tables
 from auth import verify_password, get_password_hash, create_access_token, verify_token
+import os
 
 app = FastAPI(title="Proof-of-Intelligence Network", version="1.0.0")
 
 # CORS middleware for frontend integration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"https://.*\.replit\.dev(:\d+)?|http://localhost(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -21,6 +24,23 @@ app.add_middleware(
 
 # Create database tables
 create_tables()
+
+# Static files and frontend serving for production
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    
+    @app.get("/{path:path}")
+    def serve_frontend(path: str = ""):
+        # Serve API routes normally
+        if path.startswith("auth/") or path.startswith("problems") or path.startswith("solutions") or path.startswith("validations") or path == "stats" or path.startswith("users/"):
+            raise HTTPException(status_code=404, detail="API endpoint not found")
+        
+        # Serve frontend files
+        file_path = os.path.join("static", path if path else "index.html")
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        else:
+            return FileResponse("static/index.html")  # SPA fallback
 
 # Security
 security = HTTPBearer()
