@@ -20,6 +20,7 @@ class User(Base):
     posted_problems = relationship("Problem", back_populates="author")
     submitted_solutions = relationship("Solution", back_populates="solver")
     validations = relationship("Validation", back_populates="validator")
+    transactions = relationship("Transaction", back_populates="user")
 
 class Problem(Base):
     __tablename__ = "problems"
@@ -64,3 +65,20 @@ class Validation(Base):
     # Relationships
     solution = relationship("Solution", back_populates="validations")
     validator = relationship("User", back_populates="validations")
+
+class Transaction(Base):
+    __tablename__ = "transactions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    type = Column(String(50), nullable=False)  # "problem_post", "solution_reward", "validation_reward"
+    amount = Column(Float, nullable=False)  # Positive for earnings, negative for spending
+    description = Column(String(200), nullable=False)
+    problem_id = Column(Integer, ForeignKey("problems.id"), nullable=True)
+    solution_id = Column(Integer, ForeignKey("solutions.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    problem = relationship("Problem")
+    solution = relationship("Solution")

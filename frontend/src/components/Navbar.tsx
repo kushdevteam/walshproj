@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Brain, LogOut, User, Plus, Gavel } from 'lucide-react';
+import { Brain, LogOut, User, Plus, Gavel, History } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Navbar: React.FC = () => {
@@ -44,6 +44,13 @@ export const Navbar: React.FC = () => {
                 <span>Validate</span>
               </Link>
             )}
+            <Link
+              to="/transactions"
+              className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 font-medium"
+            >
+              <History className="h-4 w-4" />
+              <span>History</span>
+            </Link>
             <Link
               to="/profile"
               className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 font-medium"

@@ -86,5 +86,26 @@ class Validation(BaseModel):
     class Config:
         from_attributes = True
 
+# Transaction schemas
+class Transaction(BaseModel):
+    id: int
+    user_id: int
+    type: str
+    amount: float
+    description: str
+    problem_id: Optional[int] = None
+    solution_id: Optional[int] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Reputation system
+class ReputationLevel(BaseModel):
+    level: str
+    min_reputation: int
+    max_reputation: int
+    progress_percentage: float
+
 # Update forward references
 ProblemWithSolutions.model_rebuild()

@@ -71,3 +71,27 @@ export interface ValidationCreateRequest {
   decision: 'approved' | 'rejected';
   feedback?: string;
 }
+
+export interface Transaction {
+  id: number;
+  user_id: number;
+  type: string;
+  amount: number;
+  description: string;
+  problem_id?: number;
+  solution_id?: number;
+  created_at: string;
+}
+
+export interface ReputationLevel {
+  level: string;
+  min_reputation: number;
+  max_reputation: number;
+  progress_percentage: number;
+}
+
+export interface ProblemStatus {
+  status: 'open' | 'in_review' | 'solved';
+  approved_solutions: number;
+  pending_solutions: number;
+}

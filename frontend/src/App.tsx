@@ -9,6 +9,7 @@ import { ProblemDetail } from './pages/ProblemDetail';
 import { PostProblem } from './pages/PostProblem';
 import { ValidatorPage } from './pages/ValidatorPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { TransactionHistory } from './pages/TransactionHistory';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -89,6 +90,15 @@ const AppContent: React.FC = () => {
               <ValidatorRoute>
                 <ValidatorPage />
               </ValidatorRoute>
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/transactions"
+          element={
+            <ProtectedRoute>
+              <TransactionHistory />
             </ProtectedRoute>
           }
         />

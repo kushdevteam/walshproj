@@ -1,7 +1,8 @@
 import axios from 'axios';
 import type { 
   User, Problem, Solution, AuthResponse, LoginRequest, SignupRequest, 
-  ProblemCreateRequest, SolutionCreateRequest, ValidationCreateRequest 
+  ProblemCreateRequest, SolutionCreateRequest, ValidationCreateRequest,
+  Transaction, ReputationLevel, ProblemStatus
 } from '../types';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
@@ -87,6 +88,25 @@ export const solutionService = {
 export const validationService = {
   async validateSolution(data: ValidationCreateRequest) {
     const response = await api.post('/validations', data);
+    return response.data;
+  }
+};
+
+export const userService = {
+  async getUserReputation(): Promise<ReputationLevel> {
+    const response = await api.get('/users/me/reputation');
+    return response.data;
+  },
+
+  async getUserTransactions(): Promise<Transaction[]> {
+    const response = await api.get('/users/me/transactions');
+    return response.data;
+  }
+};
+
+export const statsService = {
+  async getProblemStatus(problemId: number): Promise<ProblemStatus> {
+    const response = await api.get(`/problems/${problemId}/status`);
     return response.data;
   }
 };

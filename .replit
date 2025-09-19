@@ -50,7 +50,15 @@ outputType = "webview"
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 8000
+externalPort = 8000
+
+[[ports]]
+localPort = 39357
+externalPort = 3001
+
 [deployment]
 deploymentTarget = "vm"
-run = ["bash", "-c", "uv sync && uv run uvicorn main:app --host 0.0.0.0 --port 5000"]
-build = ["bash", "-c", "cd frontend && pnpm install && pnpm run build && mkdir -p ../static && cp -r dist/* ../static/"]
+run = ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000"]
+build = ["bash", "-c", "cd frontend && pnpm build && cp -r dist/* ../static/"]

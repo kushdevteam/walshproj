@@ -25,22 +25,49 @@ app.add_middleware(
 # Create database tables
 create_tables()
 
+# Helper function to calculate reputation level
+def get_reputation_level(reputation: int):
+    if reputation < 100:
+        return {
+            "level": "Novice",
+            "min_reputation": 0,
+            "max_reputation": 99,
+            "progress_percentage": min(100, (reputation / 100) * 100)
+        }
+    elif reputation < 500:
+        return {
+            "level": "Expert",
+            "min_reputation": 100,
+            "max_reputation": 499,
+            "progress_percentage": min(100, ((reputation - 100) / 400) * 100)
+        }
+    else:
+        return {
+            "level": "Master",
+            "min_reputation": 500,
+            "max_reputation": 999,
+            "progress_percentage": min(100, ((reputation - 500) / 500) * 100)
+        }
+
+# Helper function to create transaction record
+def create_transaction(db: Session, user_id: int, transaction_type: str, amount: float, description: str, problem_id: Optional[int] = None, solution_id: Optional[int] = None):
+    transaction = models.Transaction(
+        user_id=user_id,
+        type=transaction_type,
+        amount=amount,
+        description=description,
+        problem_id=problem_id,
+        solution_id=solution_id
+    )
+    db.add(transaction)
+    return transaction
+
 # Static files and frontend serving for production
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
     
-    @app.get("/{path:path}")
-    def serve_frontend(path: str = ""):
-        # Serve API routes normally
-        if path.startswith("auth/") or path.startswith("problems") or path.startswith("solutions") or path.startswith("validations") or path == "stats" or path.startswith("users/"):
-            raise HTTPException(status_code=404, detail="API endpoint not found")
-        
-        # Serve frontend files
-        file_path = os.path.join("static", path if path else "index.html")
-        if os.path.exists(file_path) and os.path.isfile(file_path):
-            return FileResponse(file_path)
-        else:
-            return FileResponse("static/index.html")  # SPA fallback
+    # Only serve frontend for non-API routes - move this after all API routes are defined
+    # This will be added at the end of the file
 
 # Security
 security = HTTPBearer()
@@ -98,6 +125,17 @@ def login(user_data: schemas.UserLogin, db: Session = Depends(get_db)):
 def get_current_user_profile(current_user: models.User = Depends(get_current_user)):
     return current_user
 
+@app.get("/users/me/reputation", response_model=schemas.ReputationLevel)
+def get_user_reputation_level(current_user: models.User = Depends(get_current_user)):
+    return get_reputation_level(current_user.reputation)
+
+@app.get("/users/me/transactions", response_model=List[schemas.Transaction])
+def get_user_transactions(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    transactions = db.query(models.Transaction).filter(
+        models.Transaction.user_id == current_user.id
+    ).order_by(models.Transaction.created_at.desc()).all()
+    return transactions
+
 # Problem endpoints
 @app.post("/problems", response_model=schemas.Problem)
 def create_problem(
@@ -105,6 +143,13 @@ def create_problem(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    # Check if user has enough tokens
+    if current_user.token_balance < problem_data.reward_amount:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient token balance"
+        )
+    
     problem = models.Problem(
         title=problem_data.title,
         description=problem_data.description,
@@ -112,6 +157,18 @@ def create_problem(
         reward_amount=problem_data.reward_amount
     )
     db.add(problem)
+    
+    # Deduct tokens from user balance
+    db.query(models.User).filter(models.User.id == current_user.id).update({
+        "token_balance": models.User.token_balance - problem_data.reward_amount
+    })
+    
+    # Create transaction record
+    create_transaction(
+        db, current_user.id, "problem_post", -problem_data.reward_amount, 
+        f"Posted problem: {problem_data.title}", problem_id=problem.id
+    )
+    
     db.commit()
     db.refresh(problem)
     return problem
@@ -173,7 +230,7 @@ def get_pending_solutions(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    if not bool(current_user.is_validator):
+    if not current_user.is_validator:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only validators can access pending solutions"
@@ -189,7 +246,7 @@ def validate_solution(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    if not bool(current_user.is_validator):
+    if not current_user.is_validator:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only validators can validate solutions"
@@ -221,15 +278,34 @@ def validate_solution(
     # Update solution status
     db.query(models.Solution).filter(models.Solution.id == validation_data.solution_id).update({"status": validation_data.decision})
     
-    # If approved, reward the solver
+    # If approved, reward the solver and validator
     if validation_data.decision == "approved":
         solver = db.query(models.User).filter(models.User.id == solution.solver_id).first()
         problem = db.query(models.Problem).filter(models.Problem.id == solution.problem_id).first()
         if solver and problem:
+            # Reward solver
             db.query(models.User).filter(models.User.id == solver.id).update({
                 "token_balance": models.User.token_balance + problem.reward_amount,
                 "reputation": models.User.reputation + 10
             })
+            
+            # Reward validator (5% of problem reward)
+            validator_reward = problem.reward_amount * 0.05
+            db.query(models.User).filter(models.User.id == current_user.id).update({
+                "token_balance": models.User.token_balance + validator_reward,
+                "reputation": models.User.reputation + 5
+            })
+            
+            # Create transaction records
+            create_transaction(
+                db, solver.id, "solution_reward", problem.reward_amount,
+                f"Solution approved for: {problem.title}", problem_id=problem.id, solution_id=solution.id
+            )
+            
+            create_transaction(
+                db, current_user.id, "validation_reward", validator_reward,
+                f"Validated solution for: {problem.title}", problem_id=problem.id, solution_id=solution.id
+            )
     
     db.commit()
     db.refresh(validation)
@@ -249,6 +325,33 @@ def get_stats(db: Session = Depends(get_db)):
         "total_users": total_users,
         "pending_solutions": pending_solutions
     }
+
+@app.get("/problems/{problem_id}/status")
+def get_problem_status(problem_id: int, db: Session = Depends(get_db)):
+    problem = db.query(models.Problem).filter(models.Problem.id == problem_id).first()
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    
+    approved_solutions = db.query(models.Solution).filter(
+        models.Solution.problem_id == problem_id,
+        models.Solution.status == "approved"
+    ).count()
+    
+    pending_solutions = db.query(models.Solution).filter(
+        models.Solution.problem_id == problem_id,
+        models.Solution.status == "pending"
+    ).count()
+    
+    status = "open"
+    if approved_solutions > 0:
+        status = "solved"
+    elif pending_solutions > 0:
+        status = "in_review"
+    
+    return {"status": status, "approved_solutions": approved_solutions, "pending_solutions": pending_solutions}
+
+# Note: Frontend is served separately on port 5000 in development
+# Static file serving removed for clean API-only backend
 
 if __name__ == "__main__":
     import uvicorn
